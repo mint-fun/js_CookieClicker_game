@@ -1,0 +1,373 @@
+<html>
+
+<head>
+  <style></style>
+</head>
+
+<body>
+
+<script>
+
+//-------Hier einfügen---------------------------
+
+
+// Spielvariablen
+let cookies = 0;
+let totalCookiesEarned = 0;
+let cookiesPerSecond = 0;
+let clickPower = 1;
+
+// Für den Klick-Effekt
+let cookieScale = 1;
+let clickEffects = []; // Speichert aufpoppende Texte beim Klicken
+
+// --- NORMALE UPGRADES (Mehrfach kaufbar) ---
+let upgrades = [
+  {
+    name: "Oma (Grandma)",
+    cost: 15,
+    costMultiplier: 1.15,
+    owned: 0,
+    cps: 1,
+    cpc: 0,
+    unlockAt: 10,
+    desc: "Backt fleißig Cookies."
+  },
+  {
+    name: "Ofen (Oven)",
+    cost: 100,
+    costMultiplier: 1.2,
+    owned: 0,
+    cps: 8,
+    cpc: 0,
+    unlockAt: 75,
+    desc: "Mehr Hitze, mehr Cookies."
+  },
+  {
+    name: "Goldener Teig",
+    cost: 300,
+    costMultiplier: 1.3,
+    owned: 0,
+    cps: 0,
+    cpc: 2,
+    unlockAt: 200,
+    desc: "+2 Cookies pro Mausklick."
+  },
+  {
+    name: "Keks-Fabrik",
+    cost: 1200,
+    costMultiplier: 1.15,
+    owned: 0,
+    cps: 45,
+    cpc: 0,
+    unlockAt: 900,
+    desc: "Massentproduktion läuft!"
+  }
+];
+
+// --- EINMALIGE SPEZIAL-UPGRADES (Satisfying Boosts) ---
+let oneTimeUpgrades = [
+  {
+    name: "⚡ Kritische Treffer",
+    cost: 500,
+    unlocked: false,
+    purchased: false,
+    unlockAt: 350,
+    desc: "15% Chance auf 5x Klick-Ertrag!",
+    effect: function() { critChance += 0.15; critMultiplier = 5; }
+  },
+  {
+    name: "✨ Glücks-Krümel",
+    cost: 2000,
+    unlocked: false,
+    purchased: false,
+    unlockAt: 1500,
+    desc: "Verdoppelt sofort deine gesamte Klick-Power!",
+    effect: function() { clickPower *= 2; }
+  },
+  {
+    name: "🚀 Turbo-Aura",
+    cost: 7500,
+    unlocked: false,
+    purchased: false,
+    unlockAt: 5000,
+    desc: "Erhöht alle automatischen Cookies (CPS) um +50%!",
+    effect: function() { cookiesPerSecond *= 1.5; }
+  }
+];
+
+// Werte für Spezial-Upgrades
+let critChance = 0.0;
+let critMultiplier = 1;
+
+function setup() {
+  createCanvas(950, 620);
+  textAlign(CENTER, CENTER);
+}
+
+function draw() {
+  background(245, 235, 215);
+
+  // Automatische Cookies berechnen
+  let addedCookies = (cookiesPerSecond / 60);
+  cookies += addedCookies;
+  totalCookiesEarned += addedCookies;
+
+  // --- LINKE SEITE: STATS & MAUS-COOKIE ---
+  drawCookieSection();
+
+  // --- RECHTE SEITE: SHOP (Normal + Spezial) ---
+  drawShop();
+ 
+  // --- AUFPOppenDE ZAHLEN (Satisfying Effekt) ---
+  drawClickEffects();
+}
+
+function drawCookieSection() {
+  // Titel
+  fill(80, 40, 20);
+  textSize(32);
+  textStyle(BOLD);
+  text("Satisfinder Cookie Clicker", 210, 45);
+
+  // Zähler
+  textSize(24);
+  text(floor(cookies) + " Cookies", 210, 95);
+ 
+  textSize(13);
+  textStyle(NORMAL);
+  fill(120, 80, 50);
+  text("Pro Sekunde: " + cookiesPerSecond.toFixed(1), 210, 125);
+  text("Pro Klick: " + clickPower, 210, 145);
+  if (critChance > 0) {
+    text("Krit-Chance: " + (critChance * 100) + "% (" + critMultiplier + "x)", 210, 165);
+  }
+
+  // Klick-Animation sanft zurücksetzen
+  cookieScale = lerp(cookieScale, 1, 0.12);
+
+  // Cookie folgt der Maus auf der linken Seite
+  let targetX = constrain(mouseX, 70, 350);
+  let targetY = constrain(mouseY, 240, 540);
+
+  push();
+  translate(targetX, targetY);
+  scale(cookieScale);
+ 
+  // Schatten
+  noStroke();
+  fill(160, 100, 50, 80);
+  ellipse(4, 4, 120, 120);
+
+  // Haupt-Cookie (Teig)
+  fill(205, 145, 85);
+  ellipse(0, 0, 120, 120);
+
+  // Schokotropfen (Glänzend)
+  fill(80, 45, 20);
+  ellipse(-25, -25, 14, 14);
+  ellipse(20, -30, 12, 13);
+  ellipse(-30, 18, 13, 12);
+  ellipse(24, 24, 16, 14);
+  ellipse(8, 8, 13, 13);
+  pop();
+}
+
+function drawShop() {
+  // Trennlinie
+  stroke(210, 180, 140);
+  strokeWeight(3);
+  line(420, 30, 420, 590);
+  noStroke();
+
+  // Shop Titel
+  fill(80, 40, 20);
+  textSize(26);
+  textStyle(BOLD);
+  text("Shop & Spezial-Boni", 685, 45);
+
+  let startY = 75;
+  let boxH = 68;
+  let gap = 10;
+  let currentY = startY;
+
+  // 1. Normale Upgrades zeichnen
+  for (let i = 0; i < upgrades.length; i++) {
+    let u = upgrades[i];
+
+    if (totalCookiesEarned >= u.unlockAt) {
+      drawButton(440, currentY, 480, boxH, u.name, u.desc, "Kosten: " + floor(u.cost), "Besitz: " + u.owned, cookies >= u.cost);
+      currentY += boxH + gap;
+    }
+  }
+
+  // Kleine Trennung im Shop für Spezial-Upgrades
+  currentY += 5;
+  fill(120, 80, 50);
+  textSize(14);
+  textStyle(BOLD);
+  textAlign(LEFT, TOP);
+  text("--- Einmalige Spezial-Boni ---", 440, currentY);
+  currentY += 22;
+
+  // 2. Einmalige Spezial-Upgrades zeichnen
+  for (let i = 0; i < oneTimeUpgrades.length; i++) {
+    let o = oneTimeUpgrades[i];
+
+    if (totalCookiesEarned >= o.unlockAt && !o.purchased) {
+      drawButton(440, currentY, 480, boxH, o.name, o.desc, "Kosten: " + o.cost, "Einmalig", cookies >= o.cost);
+      currentY += boxH + gap;
+    }
+  }
+}
+
+// Hilfsfunktion zum Zeichnen der Shop-Buttons
+function drawButton(x, y, w, h, title, desc, priceText, infoText, affordable) {
+  if (affordable) {
+    fill(255, 242, 225);
+    stroke(190, 130, 80);
+  } else {
+    fill(235, 225, 215);
+    stroke(205, 195, 185);
+  }
+  strokeWeight(2);
+  rect(x, y, w, h, 8);
+
+  noStroke();
+  fill(80, 40, 20);
+  textSize(15);
+  textStyle(BOLD);
+  textAlign(LEFT, TOP);
+  text(title, x + 12, y + 8);
+
+  textSize(11);
+  textStyle(NORMAL);
+  fill(120, 80, 50);
+  text(desc, x + 12, y + 28);
+
+  fill(80, 40, 20);
+  textSize(13);
+  textStyle(BOLD);
+  textAlign(RIGHT, TOP);
+  text(priceText, x + w - 12, y + 8);
+ 
+  textStyle(NORMAL);
+  textSize(12);
+  text(infoText, x + w - 12, y + 28);
+ 
+  textAlign(CENTER, CENTER);
+}
+
+function drawClickEffects() {
+  // Aufpoppende Texte aktualisieren und zeichnen
+  for (let i = clickEffects.length - 1; i >= 0; i--) {
+    let fx = clickEffects[i];
+   
+    push();
+    translate(fx.x, fx.y);
+    textSize(fx.isCrit ? 22 : 16);
+    textStyle(BOLD);
+   
+    // Farbe: Kritische Treffer leuchten gold/orange, normale weiß-braun
+    if (fx.isCrit) {
+      fill(255, 140, 0, fx.alpha);
+      text("CRIT! +" + fx.amount, 0, 0);
+    } else {
+      fill(80, 40, 20, fx.alpha);
+      text("+" + fx.amount, 0, 0);
+    }
+    pop();
+
+    // Nach oben schweben und verblassen
+    fx.y -= 1.2;
+    fx.alpha -= 6;
+
+    // Entfernen, wenn unsichtbar
+    if (fx.alpha <= 0) {
+      clickEffects.splice(i, 1);
+    }
+  }
+}
+
+// Klick-Erkennung
+function mousePressed() {
+  let cookieX = constrain(mouseX, 70, 350);
+  let cookieY = constrain(mouseY, 240, 540);
+ 
+  // 1. Auf den Cookie klicken (Linke Seite)
+  if (mouseX < 420) {
+    let actualGain = clickPower;
+    let isCrit = false;
+
+    // Prüfen ob Kritischer Treffer triggert
+    if (critChance > 0 && random() < critChance) {
+      actualGain *= critMultiplier;
+      isCrit = true;
+    }
+
+    cookies += actualGain;
+    totalCookiesEarned += actualGain;
+    cookieScale = 1.25;
+
+    // Satisfying Pop-up Text erzeugen
+    clickEffects.push({
+      x: mouseX,
+      y: mouseY - 10,
+      amount: actualGain,
+      alpha: 255,
+      isCrit: isCrit
+    });
+  }
+
+  // 2. Auf Upgrades im Shop klicken (Rechte Seite)
+  let startY = 75;
+  let boxH = 68;
+  let gap = 10;
+  let currentY = startY;
+
+  // Normale Upgrades prüfen
+  for (let i = 0; i < upgrades.length; i++) {
+    let u = upgrades[i];
+    if (totalCookiesEarned >= u.unlockAt) {
+      if (mouseX > 440 && mouseX < 440 + 480 && mouseY > currentY && mouseY < currentY + boxH) {
+        if (cookies >= u.cost) {
+          cookies -= u.cost;
+          u.owned++;
+          cookiesPerSecond += u.cps;
+          clickPower += u.cpc;
+          u.cost *= u.costMultiplier;
+        }
+      }
+      currentY += boxH + gap;
+    }
+  }
+
+  currentY += 27; // Platz für die Überschrift
+
+  // Einmalige Spezial-Upgrades prüfen
+  for (let i = 0; i < oneTimeUpgrades.length; i++) {
+    let o = oneTimeUpgrades[i];
+    if (totalCookiesEarned >= o.unlockAt && !o.purchased) {
+      if (mouseX > 440 && mouseX < 440 + 480 && mouseY > currentY && mouseY < currentY + boxH) {
+        if (cookies >= o.cost) {
+          cookies -= o.cost;
+          o.purchased = true;
+          o.effect(); // Führt den Spezial-Effekt aus!
+        }
+      }
+      currentY += boxH + gap;
+    }
+  }
+}
+
+//-------Bis hier einfügen-----------------------
+
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/p5@2.3.2/lib/p5.js">
+
+</script>
+
+</body>
+
+</html>
